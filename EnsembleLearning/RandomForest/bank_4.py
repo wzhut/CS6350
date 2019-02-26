@@ -1,6 +1,8 @@
 #%%
 import pandas as pd
 import DT as dt
+import numpy as np
+import matplotlib.pyplot as plt
 
 # load train data
 columns = ['age', 'job', 'marital', 'education', 'default', 'balance', 'housing', 'loan', 'contact', 'day', 'month', 'duration', 'campaign', 'pdays', 'previous', 'poutcome', 'y']
@@ -30,15 +32,16 @@ numeric_features = ['age', 'balance', 'day', 'duration', 'campaign', 'pdays', 'p
 for c in numeric_features:
     median = train_data[c].median()
     train_data[c] = train_data[c].apply(lambda x: 0 if x < median else 1)
+
 # replace unknowns
-unknown_features = ['job', 'education', 'contact', 'poutcome']
-for c in unknown_features:
-    order = train_data[c].value_counts().index.tolist()
-    if order[0] != 'unknown':
-        replace = order[0]
-    else:
-        replace = order[1]
-    train_data[c] = train_data[c].apply(lambda x: replace if x == 'unknown' else x)
+# unknown_features = ['job', 'education', 'contact', 'poutcome']
+# for c in unknown_features:
+#     order = train_data[c].value_counts().index.tolist()
+#     if order[0] != 'unknown':
+#         replace = order[0]
+#     else:
+#         replace = order[1]
+#     train_data[c] = train_data[c].apply(lambda x: replace if x == 'unknown' else x)
 #load test data
 test_data =  pd.read_csv('../data/bank/test.csv', names=columns, dtype=types)
 test_size = len(test_data.index)
@@ -46,13 +49,13 @@ for c in numeric_features:
     median = test_data[c].median()
     test_data[c] = test_data[c].apply(lambda x: 0 if x < median else 1)
 
-for c in unknown_features:
-    order = test_data[c].value_counts().index.tolist()
-    if order[0] != 'unknown':
-        replace = order[0]
-    else:
-        replace = order[1]
-    test_data[c] = test_data[c].apply(lambda x: replace if x == 'unknown' else x)
+# for c in unknown_features:
+#     order = test_data[c].value_counts().index.tolist()
+#     if order[0] != 'unknown':
+#         replace = order[0]
+#     else:
+#         replace = order[1]
+#     test_data[c] = test_data[c].apply(lambda x: replace if x == 'unknown' else x)
 
 # set features and label
 features = {'age': [0, 1],  # converted to binary
@@ -73,30 +76,66 @@ features = {'age': [0, 1],  # converted to binary
         'poutcome': ['unknown', 'other', 'failure', 'success']}
 label = {'y': ['yes', 'no']}
 
+T = 1000
 
-train_acc = [[0 for x in range(16)] for y in range(3)]
-test_acc = [[0 for x in range(16)] for y in range(3)]
-acc = [[0 for x in range(6)] for y in range(16)]
+train_err = [0 for x in range(T)]
+test_err = [0 for x in range(T)]
+train_py = np.array([0 for x in range(train_size)])
+test_py = np.array([0 for x in range(test_size)])
 
-for feature_selection in range(3):
-    for max_depth in range(16):
-        print('m:', feature_selection, ' d:', max_depth)
-        # ID3
-        dt_generator = dt.ID3(feature_selection=feature_selection, max_depth=max_depth+1)
-        # get decision tree
-        decision_tree = dt_generator.generate_decision_tree(train_data, features, label)
-        # train acc
-        # predict
-        train_data['py']= dt_generator.classify(decision_tree, train_data)
-        train_acc[feature_selection][max_depth] = train_data.apply(lambda row: 1 if row['y'] == row['py'] else 0, axis=1).sum() / train_size
-        acc[max_depth][feature_selection * 2] = train_acc[feature_selection][max_depth]
-        # test acc
-        # predict
-        test_data['py']= dt_generator.classify(decision_tree, test_data)
-        test_acc[feature_selection][max_depth] = test_data.apply(lambda row: 1 if row['y'] == row['py'] else 0, axis=1).sum() / test_size
-        acc[max_depth][feature_selection * 2 + 1] = test_acc[feature_selection][max_depth]
+for t in range(T):
+    # sample with replace
+    sampled = train_data.sample(frac=0.5, replace=True, random_state=t)
+    # ID3
+    dt_generator = dt.ID3(feature_selection=0, max_depth=17, subset=4)
+    # get decision tree
+    decision_tree = dt_generator.generate_decision_tree(sampled, features, label)
 
-print(acc)
+    ## predict
+    # train
+    py = dt_generator.classify(decision_tree, train_data) 
+    py = np.array(py.tolist())
+    py[py == 'yes'] = 1
+    py[py == 'no'] = -1
+    py = py.astype(int)
+    train_py = train_py + py
+    py = py.astype(str)
+    py[train_py > 0] = 'yes'
+    py[train_py <=0] = 'no'
+    train_data['py'] = pd.Series(py)
+
+    acc = train_data.apply(lambda row: 1 if row['y'] == row['py'] else 0, axis=1).sum() / train_size
+    err = 1 - acc
+    train_err[t] = err
+    # test
+    py = dt_generator.classify(decision_tree, test_data) 
+    py = np.array(py.tolist())
+    py[py == 'yes'] = 1
+    py[py == 'no'] = -1
+    py = py.astype(int)
+    test_py = test_py + py
+    py = py.astype(str)
+    py[test_py > 0] = 'yes'
+    py[test_py <=0] = 'no'
+    test_data['py'] = pd.Series(py)
+    acc = test_data.apply(lambda row: 1 if row['y'] == row['py'] else 0, axis=1).sum() / test_size
+    err = 1 - acc
+    test_err[t] = err
+    print('t: ', t, 'train_err: ', train_err[t], 'test_err: ', test_err[t])
+
+
+fig = plt.figure()
+fig.suptitle('Random Forest, Feature Subset = 4')
+plt.xlabel('Iteration', fontsize=18)
+plt.ylabel('Error Rate', fontsize=16)
+plt.plot(train_err, 'b')
+plt.plot(test_err, 'r')  
+plt.legend(['train', 'test'])
+fig.savefig('rf4.png')
+
+
+
+
 # print('train_acc:', train_acc)
 # print('test_acc:', test_acc)
 

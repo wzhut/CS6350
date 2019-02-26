@@ -1,7 +1,7 @@
 import pandas as pd
 import math
 import copy
-
+import numpy as np
 # decision tree node, catogarical data values
 class TreeNode:
     def __init__(self):
@@ -38,9 +38,10 @@ class ID3:
     ## constructor
     # feature_selection: 0 information gain; 1 majority error; 2 gini index
     # max_depth maximum depth of decision tree
-    def __init__(self, feature_selection = 0, max_depth = 10):
+    def __init__(self, feature_selection = 0, max_depth = 10, subset=2):
         self.feature_selection = feature_selection
         self.max_depth = max_depth
+        self.subset = subset
         
 
     def set_feature_selection(self, feature_selection):
@@ -117,9 +118,18 @@ class ID3:
 
         max_gain = -1
         max_fn = None
+        # random select features from available features
+        keys = list(features.keys())
+        # print(keys)
+        if len(keys) > self.subset:
+            sampled_features = np.random.choice(keys, self.subset, replace=False)
+        else:
+            sampled_features = keys
+
         # select feature which results in maximum gain
-        for fn, fv in features.items():
+        for fn in sampled_features:
             gain = 0
+            fv = features[fn]
             for v in fv:
                 subset = dataset[dataset[fn] == v]
                 p = len(subset.index) / total
