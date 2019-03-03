@@ -3,22 +3,24 @@ import pandas as pd
 import numpy as np
 import LMS
 
-train_data = pd.read_csv('../data/concrete/train.csv')
+train_data = pd.read_csv('../data/concrete/train.csv', header=None)
 # process data
 raw = train_data.values
 num_col = raw.shape[1]
 num_row = raw.shape[0]
-train_x = raw[:,:]
+train_x = np.copy(raw)
 train_x[:,num_col - 1] = 1
 train_y = raw[:, num_col - 1]
+train_y = 2 * train_y - 1
 
-test_data = pd.read_csv('../data/concrete/test.csv')
-raw = train_data.values
+test_data = pd.read_csv('../data/concrete/test.csv', header=None)
+raw = test_data.values
 num_col = raw.shape[1]
 num_row = raw.shape[0]
-test_x = raw[:,:]
+test_x = np.copy(raw)
 test_x[:,num_col - 1] = 1
 test_y = raw[:, num_col - 1]
+test_y = 2 * test_y - 1
 
 # lms model
 lms = LMS.LMS()
