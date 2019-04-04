@@ -23,7 +23,7 @@ test_y = raw[:, num_col - 1]
 test_y = 2 * test_y - 1
 
 p = Perceptron.Perceptron()
-# standard algorithm
+#standard algorithm
 w = p.std_alg(train_x, train_y)
 w = np.reshape(w, (-1,1))
 pred = np.matmul(test_x, w)
@@ -57,3 +57,17 @@ err = np.sum(np.abs(pred - np.reshape(test_y,(-1,1)))) / 2 / test_y.shape[0]
 print('averaged: ', err)
 print(w)
 
+# kernel
+gamma_set = np.array([0.01, 0.1, 0.5, 1, 2, 5, 10, 100])
+for gamma in gamma_set:
+    print('gamma: ', gamma)
+    p.set_gamma(gamma)
+    c = p.kernel(train_x, train_y)
+    # train 
+    y = p.kernel_predict(c, train_x, train_y, train_x)
+    train_err = np.sum(np.abs(y - np.reshape(train_y,(-1,1)))) / 2 / train_y.shape[0]
+
+    # test
+    y = p.kernel_predict(c, train_x, train_y, test_x)
+    test_err = np.sum(np.abs(y - np.reshape(test_y,(-1,1)))) / 2 / test_y.shape[0]
+    print('nonlinear SVM train_error: ', train_err, ' test_error: ', test_err)   
